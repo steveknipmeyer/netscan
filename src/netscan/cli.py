@@ -38,7 +38,8 @@ def _run_scan(cidr: Optional[str], interface: Optional[str], timeout: float, ret
     table.add_column("Hostname", justify="left")
 
     for device in devices:
-        table.add_row(str(device.ip), device.mac, device.hostname or "")
+        style = "red" if not device.hostname else None
+        table.add_row(str(device.ip), device.mac, device.hostname or "", style=style)
 
     console.print(table)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import ipaddress
 import socket
 import subprocess
@@ -169,16 +170,27 @@ def scan_network(
     for _, reply in answered:
         ip_addr = ipaddress.IPv4Address(reply.psrc)
         mac_addr = reply.hwsrc
-        hostname = resolve_hostname(reply.psrc)
-        devices.append(Device(ip=ip_addr, mac=mac_addr, hostname=hostname))
+        devices.append(Device(ip=ip_addr, mac=mac_addr, hostname=None))
 
     if use_ping_fallback and len(devices) <= 1:
         # Some Windows Wi-Fi drivers block raw L2. Fall back: ping sweep + parse arp cache.
         fallback = _fallback_scan_via_arp_cache(cidr, timeout_ms=int(timeout * 1000))
         devices.extend([d for d in fallback if d.ip not in {dev.ip for dev in devices}])
 
+    _resolve_hostnames(devices)
     devices.sort(key=lambda device: int(device.ip))
     return devices
+
+
+def _resolve_hostnames(devices: List[Device]) -> None:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        future_to_device = {executor.submit(resolve_hostname, str(d.ip)): d for d in devices}
+        for future in concurrent.futures.as_completed(future_to_device):
+            device = future_to_device[future]
+            try:
+                device.hostname = future.result()
+            except Exception:
+                pass
 
 
 def _fallback_scan_via_arp_cache(cidr: str, timeout_ms: int = 500, max_concurrency: int = 64) -> List[Device]:
@@ -253,6 +265,6 @@ def _parse_arp_cache(network: ipaddress.IPv4Network) -> List[Device]:
         if ip_obj in seen_ips:
             continue
         seen_ips.add(ip_obj)
-        devices.append(Device(ip=ip_obj, mac=mac_norm, hostname=resolve_hostname(ip_str)))
+        devices.append(Device(ip=ip_obj, mac=mac_norm, hostname=None))
 
     return devices

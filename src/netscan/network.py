@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 import psutil
-from scapy.all import ARP, Ether, conf, srp
+from scapy.config import conf
+from scapy.layers.l2 import ARP, Ether
+from scapy.sendrecv import srp
 
 
 @dataclass

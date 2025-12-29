@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "netscan"
+version = "0.1.0"
+description = "ARP-based local network scanner CLI managed with uv"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Steve Knipmeyer" }]
+dependencies = [
+    "scapy>=2.5.0",
+    "psutil>=6.0.0",
+    "typer>=0.12.3",
+    "rich>=13.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[project.scripts]
+netscan = "netscan.cli:app"
+
+[tool.uv]
+package = true

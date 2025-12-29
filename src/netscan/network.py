@@ -145,12 +145,7 @@ def resolve_hostname(ip: str) -> Optional[str]:
         return None
 
 
-async def _resolve_hostname_async(ip: str) -> Optional[str]:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, resolve_hostname, ip)
-
-
-async def scan_network(
+def scan_network(
     cidr: str,
     interface: Optional[str] = None,
     timeout: float = 2.0,
@@ -166,46 +161,36 @@ async def scan_network(
     resolved_iface = _resolve_iface_name(interface)
 
     packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=cidr)
-
-    loop = asyncio.get_running_loop()
-
-    def _scapy_srp():
-        return srp(packet, timeout=timeout, retry=retry, iface=resolved_iface)
-
-    answered, _ = await loop.run_in_executor(None, _scapy_srp)
+    answered, _ = srp(packet, timeout=timeout, retry=retry, iface=resolved_iface)
 
     devices: List[Device] = []
     for _, reply in answered:
         ip_addr = ipaddress.IPv4Address(reply.psrc)
         mac_addr = reply.hwsrc
-        hostname = await _resolve_hostname_async(reply.psrc)
+        hostname = resolve_hostname(reply.psrc)
         devices.append(Device(ip=ip_addr, mac=mac_addr, hostname=hostname))
 
     if use_ping_fallback and len(devices) <= 1:
         # Some Windows Wi-Fi drivers block raw L2. Fall back: ping sweep + parse arp cache.
-        fallback = await _fallback_scan_via_arp_cache(cidr, timeout_ms=int(timeout * 1000))
+        fallback = _fallback_scan_via_arp_cache(cidr, timeout_ms=int(timeout * 1000))
         devices.extend([d for d in fallback if d.ip not in {dev.ip for dev in devices}])
 
     devices.sort(key=lambda device: int(device.ip))
     return devices
 
 
-async def _fallback_scan_via_arp_cache(cidr: str, timeout_ms: int = 500, max_concurrency: int = 64) -> List[Device]:
+def _fallback_scan_via_arp_cache(cidr: str, timeout_ms: int = 500, max_concurrency: int = 64) -> List[Device]:
     network = ipaddress.ip_network(cidr, strict=False)
     hosts = [str(ip) for ip in network.hosts()]
 
     async def ping(ip: str) -> None:
         # Windows ping: -n 1 (one echo), -w timeout in ms
-        param_count = "-n" if platform.system() == "Windows" else "-c"
-        param_timeout = "-w" if platform.system() == "Windows" else "-W"
-
-        # Linux ping -W expects seconds, Windows -w expects milliseconds
-        timeout_val = str(timeout_ms) if platform.system() == "Windows" else str(timeout_ms / 1000)
-
         proc = await asyncio.create_subprocess_exec(
             "ping",
-            param_count, "1",
-            param_timeout, timeout_val,
+            "-n",
+            "1",
+            "-w",
+            str(timeout_ms),
             ip,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -221,18 +206,18 @@ async def _fallback_scan_via_arp_cache(cidr: str, timeout_ms: int = 500, max_con
 
         await asyncio.gather(*(guarded(ip) for ip in hosts))
 
-    await runner()
-
-    return await _parse_arp_cache(network)
-
-
-async def _parse_arp_cache(network: ipaddress.IPv4Network) -> List[Device]:
     try:
-        loop = asyncio.get_running_loop()
-        output = await loop.run_in_executor(
-            None,
-            lambda: subprocess.check_output(["arp", "-a"], text=True, encoding="ascii", errors="ignore")
-        )
+        asyncio.run(runner())
+    except RuntimeError:
+        # If already in an event loop, skip ping fan-out.
+        pass
+
+    return _parse_arp_cache(network)
+
+
+def _parse_arp_cache(network: ipaddress.IPv4Network) -> List[Device]:
+    try:
+        output = subprocess.check_output(["arp", "-a"], text=True, encoding="ascii", errors="ignore")
     except (FileNotFoundError, subprocess.SubprocessError):
         return []
 
@@ -266,7 +251,6 @@ async def _parse_arp_cache(network: ipaddress.IPv4Network) -> List[Device]:
         if ip_obj in seen_ips:
             continue
         seen_ips.add(ip_obj)
-        hostname = await _resolve_hostname_async(ip_str)
-        devices.append(Device(ip=ip_obj, mac=mac_norm, hostname=hostname))
+        devices.append(Device(ip=ip_obj, mac=mac_norm, hostname=resolve_hostname(ip_str)))
 
     return devices

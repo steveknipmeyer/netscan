@@ -1,4 +1,3 @@
-import asyncio
 import types
 
 import pytest
@@ -64,13 +63,9 @@ def test_scan_network_resolves_interface(monkeypatch):
         def reload(self):
             return self
 
-        def register_provider(self, provider):
-            pass
-
     # isolate conf and srp changes
     monkeypatch.setattr(network.conf, "use_pcap", False)
     monkeypatch.setattr(network.conf, "ifaces", DummyIfaces())
-    monkeypatch.setattr(network.platform, "system", lambda: "Windows")
 
     def fake_srp(packet, timeout, retry, iface):  # noqa: ARG001
         calls["iface"] = iface
@@ -78,7 +73,7 @@ def test_scan_network_resolves_interface(monkeypatch):
 
     monkeypatch.setattr(network, "srp", fake_srp)
 
-    asyncio.run(network.scan_network("192.168.1.0/24", interface="Wi-Fi", timeout=1, retry=0, use_ping_fallback=False))
+    network.scan_network("192.168.1.0/24", interface="Wi-Fi", timeout=1, retry=0)
 
     assert network.conf.use_pcap is True
     assert calls["iface"] == "NPF_{wifi}"
@@ -99,7 +94,7 @@ Interface: 192.168.1.184 --- 0x15
     monkeypatch.setattr(network.subprocess, "check_output", fake_check_output)
 
     network_obj = network.ipaddress.ip_network("192.168.1.0/24")
-    devices = asyncio.run(_parse_arp_cache(network_obj))
+    devices = _parse_arp_cache(network_obj)
 
     assert [str(d.ip) for d in devices] == ["192.168.1.1"]
     assert devices[0].mac == "78:67:0e:f6:64:df"
@@ -111,13 +106,13 @@ def test_scan_network_can_disable_fallback(monkeypatch):
     def fake_srp(packet, timeout, retry, iface):  # noqa: ARG001
         return [], []
 
-    async def fake_fallback(*args, **kwargs):  # noqa: ARG001
+    def fake_fallback(*args, **kwargs):  # noqa: ARG001
         calls["fallback"] += 1
         return []
 
     monkeypatch.setattr(network, "srp", fake_srp)
     monkeypatch.setattr(network, "_fallback_scan_via_arp_cache", fake_fallback)
 
-    devices = asyncio.run(network.scan_network("192.168.1.0/30", use_ping_fallback=False))
+    devices = network.scan_network("192.168.1.0/30", use_ping_fallback=False)
     assert devices == []
     assert calls["fallback"] == 0

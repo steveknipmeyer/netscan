@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Optional
 
 import typer
@@ -20,13 +21,13 @@ def _run_scan(cidr: Optional[str], interface: Optional[str], timeout: float, ret
         raise typer.Exit(code=1)
 
     console.print(f"Scanning {target_cidr}...")
-    devices = scan_network(
+    devices = asyncio.run(scan_network(
         target_cidr,
         interface=interface,
         timeout=timeout,
         retry=retry,
         use_ping_fallback=use_ping_fallback,
-    )
+    ))
 
     if not devices:
         console.print("No devices responded.")

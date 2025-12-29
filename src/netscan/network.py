@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import platform
 import socket
 import subprocess
 from dataclasses import dataclass
@@ -158,7 +157,7 @@ def scan_network(
     On Windows Wi-Fi, some drivers block raw ARP; when enabled, a ping sweep + ARP cache parse is used as a fallback.
     """
     conf.verb = 0
-    conf.use_pcap = platform.system() == "Windows"  # keep pcap on Windows; raw sockets are smoother elsewhere
+    conf.use_pcap = True  # needed on Windows for layer-2 sends
     resolved_iface = _resolve_iface_name(interface)
 
     packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=cidr)

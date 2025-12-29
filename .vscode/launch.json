@@ -7,7 +7,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "netscan.cli",
-            "python": "${workspaceFolder}/.venv/bin/python",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "args": [],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

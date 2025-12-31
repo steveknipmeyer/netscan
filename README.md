@@ -1,6 +1,6 @@
 # NetScan
 
-Local ARP-based network scanner CLI managed with uv. It discovers devices on your LAN and reports their IP, MAC, and hostname when available.
+Local ARP-based network scanner CLI managed with uv. It discovers devices on your LAN and reports their IP, MAC, vendor (OUI), and hostname when available.
 
 ## Prerequisites
 
@@ -55,3 +55,4 @@ uv run pytest
 - ARP scans are limited to IPv4 on the local network.
 - Hostname resolution uses reverse DNS; many devices may not return a hostname.
 - Default gateway detection reads /proc/net/route (Linux). On other OSes, pass --interface/--cidr explicitly.
+- Vendor/OUI data comes from the bundled manuf database; randomized or unknown prefixes may not return a vendor name.

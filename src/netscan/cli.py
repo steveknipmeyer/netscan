@@ -35,11 +35,18 @@ def _run_scan(cidr: Optional[str], interface: Optional[str], timeout: float, ret
     table = Table(title=f"Devices on {target_cidr}")
     table.add_column("IP", justify="left")
     table.add_column("MAC", justify="left")
+    table.add_column("Vendor", justify="left")
     table.add_column("Hostname", justify="left")
 
     for device in devices:
         style = "red" if not device.hostname else None
-        table.add_row(str(device.ip), device.mac, device.hostname or "", style=style)
+        table.add_row(
+            str(device.ip),
+            device.mac,
+            device.vendor or "",
+            device.hostname or "",
+            style=style,
+        )
 
     console.print(table)
 

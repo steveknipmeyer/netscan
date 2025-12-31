@@ -7,6 +7,7 @@ from netscan.network import (
     _parse_arp_cache,
     get_network_cidr,
     list_interfaces,
+    lookup_vendor,
     resolve_hostname,
 )
 import netscan.network as network
@@ -63,6 +64,9 @@ def test_scan_network_resolves_interface(monkeypatch):
         def reload(self):
             return self
 
+        def register_provider(self, provider):  # noqa: ARG002
+            return None
+
     # isolate conf and srp changes
     monkeypatch.setattr(network.conf, "use_pcap", False)
     monkeypatch.setattr(network.conf, "ifaces", DummyIfaces())
@@ -73,7 +77,7 @@ def test_scan_network_resolves_interface(monkeypatch):
 
     monkeypatch.setattr(network, "srp", fake_srp)
 
-    network.scan_network("192.168.1.0/24", interface="Wi-Fi", timeout=1, retry=0)
+    network.scan_network("192.168.1.0/24", interface="Wi-Fi", timeout=1, retry=0, use_ping_fallback=False)
 
     assert network.conf.use_pcap is True
     assert calls["iface"] == "NPF_{wifi}"
@@ -98,6 +102,29 @@ Interface: 192.168.1.184 --- 0x15
 
     assert [str(d.ip) for d in devices] == ["192.168.1.1"]
     assert devices[0].mac == "78:67:0e:f6:64:df"
+
+
+def test_lookup_vendor_uses_parser_and_cache(monkeypatch):
+    calls = {"count": 0}
+
+    class DummyParser:
+        def get_manuf(self, mac):  # noqa: ANN001
+            calls["count"] += 1
+            return "Acme Corp" if mac == "00:11:22:33:44:55" else None
+
+        def get_comment(self, mac):  # noqa: ANN001
+            return None
+
+    monkeypatch.setattr(network, "_vendor_cache", {})
+    monkeypatch.setattr(network, "_get_vendor_parser", lambda: DummyParser())
+
+    vendor = lookup_vendor("00:11:22:33:44:55")
+    assert vendor == "Acme Corp"
+
+    # Second lookup should hit cache, not the parser.
+    vendor_again = lookup_vendor("00:11:22:33:44:55")
+    assert vendor_again == "Acme Corp"
+    assert calls["count"] == 1
 
 
 def test_scan_network_can_disable_fallback(monkeypatch):

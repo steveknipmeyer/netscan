@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 import psutil
+try:
+    from manuf import manuf
+except ImportError:  # pragma: no cover - dependency declared but guard for resilience
+    manuf = None
 from scapy.config import conf
 from scapy.layers.l2 import ARP, Ether
 from scapy.sendrecv import srp
@@ -19,6 +23,7 @@ class Device:
     ip: ipaddress.IPv4Address
     mac: str
     hostname: Optional[str] = None
+    vendor: Optional[str] = None
 
 
 @dataclass
@@ -29,6 +34,10 @@ class InterfaceInfo:
 
 class NetworkDetectionError(RuntimeError):
     pass
+
+
+_vendor_parser: Optional["manuf.MacParser"] = None
+_vendor_cache: dict[str, Optional[str]] = {}
 
 
 def get_network_cidr(interface: Optional[str] = None) -> str:
@@ -178,6 +187,7 @@ def scan_network(
         devices.extend([d for d in fallback if d.ip not in {dev.ip for dev in devices}])
 
     _resolve_hostnames(devices)
+    _resolve_vendors(devices)
     devices.sort(key=lambda device: int(device.ip))
     return devices
 
@@ -191,6 +201,40 @@ def _resolve_hostnames(devices: List[Device]) -> None:
                 device.hostname = future.result()
             except Exception:
                 pass
+
+
+def _get_vendor_parser() -> Optional["manuf.MacParser"]:
+    global _vendor_parser
+    if manuf is None:
+        return None
+    if _vendor_parser is None:
+        _vendor_parser = manuf.MacParser()
+    return _vendor_parser
+
+
+def lookup_vendor(mac: str) -> Optional[str]:
+    normalized = mac.replace("-", ":").lower()
+    if normalized in _vendor_cache:
+        return _vendor_cache[normalized]
+
+    parser = _get_vendor_parser()
+    if parser is None:
+        _vendor_cache[normalized] = None
+        return None
+
+    try:
+        vendor = parser.get_manuf(normalized) or parser.get_comment(normalized)
+    except Exception:
+        vendor = None
+
+    cleaned = vendor.strip() if vendor else None
+    _vendor_cache[normalized] = cleaned or None
+    return _vendor_cache[normalized]
+
+
+def _resolve_vendors(devices: List[Device]) -> None:
+    for device in devices:
+        device.vendor = lookup_vendor(device.mac)
 
 
 def _fallback_scan_via_arp_cache(cidr: str, timeout_ms: int = 500, max_concurrency: int = 64) -> List[Device]:

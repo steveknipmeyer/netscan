@@ -82,6 +82,12 @@ wheels = [
 ]
 
 [[package]]
+name = "manuf"
+version = "1.1.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/a3/9db33765f9d962de4b113c2f07b6d5bab4521ed4feec4cb97cbf18184602/manuf-1.1.5.tar.gz", hash = "sha256:741989728c8ffd0d5c5782376c00270fcd48cf7544f58bf9492a0ef674d433cd", size = 596531, upload-time = "2022-01-08T02:07:00.88Z" }
+
+[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -125,6 +131,7 @@ name = "netscan"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "manuf" },
     { name = "psutil" },
     { name = "rich" },
     { name = "scapy" },
@@ -139,6 +146,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "manuf", specifier = ">=1.1.5" },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
     { name = "rich", specifier = ">=13.7.0" },

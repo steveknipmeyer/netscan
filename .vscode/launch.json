@@ -2,12 +2,13 @@
     // Debug netscan via uv-managed virtualenv. Ensure `uv sync` has been run so .venv exists.
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "netscan (uv)",
             "type": "debugpy",
             "request": "launch",
             "module": "netscan.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "args": [],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
